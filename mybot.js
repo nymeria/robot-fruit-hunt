@@ -1,3 +1,4 @@
+
 function new_game() {
 }
 
@@ -8,75 +9,122 @@ function make_move() {
 
 	if(shouldTakeFruit(board[currentPositionX][currentPositionY])){
 		return TAKE;
-    }
+	}
 
-	var closestFruit = findFruit(currentPositionX, currentPositionY,board);
-	var moveHorizontal = currentPositionX-closestFruit.x;
+	//nothing is visited at the beginning of a move
+	var visitedCells = new Array(WIDTH);
+	for(var i=0; i<WIDTH; i++){
+		visitedCells[i] = new Array(HEIGHT);
+		for(var j=0; j<HEIGHT;j++){
+			visitedCells[i][j] = 0;
+		}
+	}
+	
+	
+	var targetFruit = findFruit(currentPositionX, currentPositionY,board, visitedCells);
+	var moveHorizontal = currentPositionX-targetFruit.x;
 	if(moveHorizontal > 0){
 		return WEST;
-	}else if(moveHorizontal < 0){
+	}
+	if(moveHorizontal < 0){
 		return EAST;
 	}
 
-	var moveVertical = currentPositionY-closestFruit.y;
+	var moveVertical = currentPositionY-targetFruit.y;
 	if(moveVertical > 0){
 		return NORTH;
-	}else if(moveVertical < 0){
+	}
+	if(moveVertical < 0){
 		return SOUTH;
 	}
 }
 
 function shouldTakeFruit(fruitType){
 	if(fruitType > 0){
-		var majority = Math.ceil(	get_total_item_count(fruitType)/2);
-		if(get_my_item_count(fruitType)	< majority){
+		var majority = Math.floor(get_total_item_count(fruitType)/2) + 1;
+		//no one won category yet; take it
+		if(get_my_item_count(fruitType)	< majority 
+				&& get_opponent_item_count(fruitType) < majority){
 			return true;
 		}
 	}
 	return false;
 }
 
-function findFruit(myX, myY, board){
+function findFruit(myX, myY, board, visitedCells){
 	var queue = new Array();
-	var result;
-	queue.push(new cell(myX,myY));
+	queue.push(new Cell(myX,myY));
+	visitedCells[myX][myY]=1;
 	var index=0;
+	var result=null;
+
 	while(index < queue.length ){
-		var position = queue[index];
-		var fruitType = board[position.x][position.y];
-		if(shouldTakeFruit(fruitType)){
-			return position;
+		var neighborsArray = new Array();
+		//dequeue and look at everything at this depth 
+		//before deciding on a move
+		for(var i = 0; i < queue.length; i++){
+			var position = queue[i];
+			var fruitType = board[position.x][position.y];
+			if(shouldTakeFruit(fruitType)){
+				if(result==null){
+					result=position;					
+				}else{
+					//one fruit is "better" when there are fewer of it
+					if(get_total_item_count(fruitType) < get_total_item_count(board[result.x][result.y])){
+						result=position;
+					}
+				}
+			}
+			//horizontal neighbors
+			for(var neighborX=-1; neighborX<=1;neighborX++){
+				if(isValidNeighbor(position.x + neighborX, position.y, visitedCells)){
+					addNeighbor(position.x + neighborX, position.y, neighborsArray, visitedCells);
+				}
+			}
+			
+			//vertical neighbors
+			for(var neighborY=-1; neighborY<=1;neighborY++){
+				if(isValidNeighbor(position.x, position.y + neighborY, visitedCells)){
+					addNeighbor(position.x, position.y + neighborY, neighborsArray, visitedCells);
+				}
+			}
+	
 		}
-
-		addNeighbors(position, queue);
-		index++;
+		
+		if(result != null){
+			return result;
+		}
+		//nothing worthwhile to take; next depth
+		queue = neighborsArray;
+		index = 0;
 	}
 }
 
-function addNeighbors(position, queue){
-	if(position.x-1>=0){
-		queue.push(new cell(position.x-1, position.y));
-	}
-	if(position.x+1<WIDTH){
-		queue.push(new cell(position.x+1, position.y));
-	}
-	if(position.y-1>=0){
-		queue.push(new cell(position.x, position.y-1));
-	}
-	if(position.y+1<HEIGHT){
-		queue.push(new cell(position.x, position.y+1));
-	}
+
+function addNeighbor(positionX, positionY, queue, visitedCells){
+		queue.push(new Cell(positionX, positionY));
+		visitedCells[positionX][positionY] = 1;
 }
 
-function cell(x,y){
+function isValidNeighbor(neighborX, neighborY,visitedCells){
+	if(neighborX >= 0 && neighborX < WIDTH 
+			&& neighborY >= 0 && neighborY < HEIGHT
+			&& visitedCells[neighborX][neighborY]==0){
+		//trace("isValidNeighbor true: " + neighborX + " " + neighborY + " " + visitedCells[neighborX][neighborY]);
+		return true;
+	}
+	return false;
+}
+
+function Cell(x,y){
 	this.x = x;
 	this.y = y;
 }
 
-// Optionally include this function if you'd like to always reset to a 
-// certain board number/layout. This is useful for repeatedly testing your
-// bot(s) against known positions.
-//
+//Optionally include this function if you'd like to always reset to a 
+//certain board number/layout. This is useful for repeatedly testing your
+//bot(s) against known positions.
+
 //function default_board_number() {
-//    return 123;
+//return 123;
 //}
